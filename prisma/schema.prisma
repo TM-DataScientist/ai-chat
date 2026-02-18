@@ -1,0 +1,25 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
+}
+
+type Message {
+  id        String
+  role      String
+  content   String
+  createdAt DateTime?
+}
+
+model Session {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  model     String    @default("gpt-5-nano")
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
