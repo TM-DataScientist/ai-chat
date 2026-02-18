@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AI Chat",
-  description: "AI チャットアシスタント",
+  description: "AI チャットアシスタント (powered by GPT-5 nano)",
 };
 
 export default function RootLayout({
