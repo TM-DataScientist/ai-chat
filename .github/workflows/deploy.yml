@@ -24,16 +24,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # WIF で Google Cloud に認証
+      # WIF で Google Cloud に認証（アクセストークンも取得）
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
 
-      # Docker を GCR に認証
+      # アクセストークンで Docker を GCR に直接認証
       - name: Configure Docker for GCR
-        run: gcloud auth configure-docker gcr.io --quiet
+        uses: docker/login-action@v3
+        with:
+          registry: gcr.io
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
 
       # Docker イメージをビルド
       - name: Build Docker image
