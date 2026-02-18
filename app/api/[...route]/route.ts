@@ -7,11 +7,37 @@ export const runtime = 'nodejs'
 
 const app = new Hono().basePath('/api')
 
+type IncomingMessage = {
+  role: 'user' | 'assistant'
+  content: string
+  imageUrl?: string
+}
+
 // POST /api/chat - Mastra Agent ストリーミング
 app.post('/chat', async (c) => {
-  const { messages, model } = await c.req.json()
+  const { messages } = await c.req.json<{ messages: IncomingMessage[]; model: string }>()
   const agent = agents['gpt-5-nano']
-  const result = await agent.stream(messages)
+
+  // 画像付きメッセージを Mastra/AI SDK の content 配列形式に変換
+  const mastraMessages = messages.map((m) => {
+    if (m.role === 'user' && m.imageUrl) {
+      // Base64 data URL から mimeType と data を抽出
+      const match = m.imageUrl.match(/^data:([^;]+);base64,(.+)$/)
+      if (match) {
+        const mimeType = match[1] as 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+        const data = match[2]
+        const contentParts: Array<{ type: 'text'; text: string } | { type: 'image'; image: string; mimeType: string }> = []
+        if (m.content) {
+          contentParts.push({ type: 'text', text: m.content })
+        }
+        contentParts.push({ type: 'image', image: data, mimeType })
+        return { role: m.role, content: contentParts }
+      }
+    }
+    return { role: m.role, content: m.content }
+  })
+
+  const result = await agent.stream(mastraMessages as Parameters<typeof agent.stream>[0])
   return new Response(result.textStream as unknown as ReadableStream, {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },
   })
@@ -61,15 +87,18 @@ app.delete('/sessions/:id', async (c) => {
 // POST /api/sessions/:id/messages - メッセージ一括保存（ストリーミング完了後）
 app.post('/sessions/:id/messages', async (c) => {
   const id = c.req.param('id')
-  const { messages } = await c.req.json()
+  const { messages } = await c.req.json<{
+    messages: Array<{ id: string; role: string; content: string; imageUrl?: string; createdAt?: string }>
+  }>()
   try {
     await prisma.session.update({
       where: { id },
       data: {
-        messages: messages.map((m: { id: string; role: string; content: string; createdAt?: string }) => ({
+        messages: messages.map((m) => ({
           id: m.id,
           role: m.role,
           content: m.content,
+          imageUrl: m.imageUrl ?? null,
           createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
         })),
       },

@@ -12,6 +12,7 @@ type Message {
   id        String
   role      String
   content   String
+  imageUrl  String?
   createdAt DateTime?
 }
 

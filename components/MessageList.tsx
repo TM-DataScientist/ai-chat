@@ -31,6 +31,7 @@ export default function MessageList({ messages, isLoading }: Props) {
           key={message.id}
           role={message.role as "user" | "assistant"}
           content={message.content}
+          imageUrl={message.imageUrl}
         />
       ))}
       {isLoading && (

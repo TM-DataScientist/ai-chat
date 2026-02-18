@@ -15,6 +15,7 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
 
   // セッション一覧を取得
   const fetchSessions = useCallback(async () => {
@@ -58,6 +59,7 @@ export default function Chat() {
   const handleNewChat = () => {
     setCurrentSessionId(null);
     setMessages([]);
+    setPendingImage(null);
   };
 
   // セッション削除
@@ -72,22 +74,26 @@ export default function Chat() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !pendingImage) || isLoading) return;
+
+    const imageUrl = pendingImage;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: input.trim(),
+      imageUrl: imageUrl ?? undefined,
     };
 
     // セッションがなければ作成
     let sessionId = currentSessionId;
     if (!sessionId) {
+      const sessionTitle = userMessage.content.slice(0, 50) || "画像付きメッセージ";
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: userMessage.content.slice(0, 50),
+          title: sessionTitle,
           model,
         }),
       });
@@ -102,6 +108,7 @@ export default function Chat() {
     const history = [...messages, userMessage];
     setMessages(history);
     setInput("");
+    setPendingImage(null);
     setIsLoading(true);
 
     const assistantId = crypto.randomUUID();
@@ -117,7 +124,11 @@ export default function Chat() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: history.map((m) => ({ role: m.role, content: m.content })),
+          messages: history.map((m) => ({
+            role: m.role,
+            content: m.content,
+            imageUrl: m.imageUrl,
+          })),
           model,
         }),
       });
@@ -187,8 +198,10 @@ export default function Chat() {
         <InputArea
           input={input}
           isLoading={isLoading}
+          imagePreview={pendingImage}
           onInputChange={setInput}
           onSubmit={handleSubmit}
+          onImageSelect={setPendingImage}
         />
       </div>
     </div>
